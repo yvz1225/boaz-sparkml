@@ -1,0 +1,11 @@
+# 아래 실습 파일만 Git에 포함
+*
+!.gitignore
+!docker-compose.yml
+!Dockerfile
+!predict.py
+!prepare_imdb.py
+!check_data.py
+!sentiment.py
+!data/
+!data/MovieReviews.csv

@@ -1,0 +1,74 @@
+services:
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: boaz-sentiment-lab:3.5.9
+    container_name: boaz-mlflow
+    working_dir: /mlflow
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --no-serve-artifacts
+      - --default-artifact-root
+      - file:///mlflow/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --allowed-hosts
+      - localhost:*,127.0.0.1:*,mlflow:5000
+    init: true
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_store:/mlflow
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:5000/health')
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: boaz-sentiment-lab:3.5.9
+    container_name: boaz-sparkml
+    working_dir: /app
+    command: ["/bin/bash", "-lc", "sleep infinity"]
+    init: true
+    stdin_open: true
+    tty: true
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      PYSPARK_PYTHON: python3
+      PYTHONUNBUFFERED: "1"
+      HF_HOME: /opt/huggingface
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      GIT_PYTHON_REFRESH: quiet
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "4040:4040"
+    volumes:
+      - ./:/app
+      - huggingface_cache:/opt/huggingface
+      - mlflow_store:/mlflow
+    healthcheck:
+      test: ["CMD-SHELL", "test -x /opt/spark/bin/spark-submit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  huggingface_cache:
+  mlflow_store:

@@ -54,7 +54,7 @@ def create_spark() -> SparkSession:
     spark = (
         SparkSession.builder.appName("MovieReviewSentiment")
         .master("local[*]")
-        .config("spark.ui.enabled", "false")
+        .config("spark.ui.enabled", "true")
         .config("spark.sql.shuffle.partitions", "2")
         .getOrCreate()
     )

@@ -35,11 +35,6 @@ MLFLOW_EXPERIMENT = "MovieReviewSentimentIMDb"
 MAX_ITER = 50
 REG_PARAMS = [0.0, 0.01, 0.1, 1.0]
 VALIDATION_SEEDS = [42, 123, 2026]
-NEW_REVIEWS = [
-    "This movie was absolutely amazing and I loved it.",
-    "The movie was boring and the story was terrible.",
-    "The actors were great but the story was disappointing.",
-]
 
 
 def parse_args() -> argparse.Namespace:
@@ -251,7 +246,6 @@ def save_results(
     output: str,
     metrics: list[dict[str, float]],
     test_predictions: DataFrame,
-    new_predictions: DataFrame,
 ) -> None:
     output_dir = Path(output)
     write_csv(
@@ -311,22 +305,6 @@ def save_results(
         ],
     )
 
-    new_rows = new_predictions.select("text", "prediction", "probability").collect()
-    write_csv(
-        output_dir / "new_review_predictions.csv",
-        ["text", "prediction", "sentiment", "positiveProbability"],
-        [
-            {
-                "text": row.text,
-                "prediction": int(row.prediction),
-                "sentiment": "Positive" if row.prediction == 1.0 else "Negative",
-                "positiveProbability": f"{float(row.probability[1]):.6f}",
-            }
-            for row in new_rows
-        ],
-    )
-
-
 def main() -> None:
     args = parse_args()
     spark = create_spark()
@@ -367,13 +345,6 @@ def main() -> None:
         print(f'AUC: {base_metrics["auc"]:.4f}')
         print(f'Log Loss: {base_metrics["log_loss"]:.4f}')
 
-        print("\n=== Part 4. 새로운 리뷰 감성 예측 ===")
-        new_features = embed_texts(spark, NEW_REVIEWS, encoder)
-        new_predictions = models[0.01].transform(new_features)
-        new_predictions.select("text", "prediction", "probability").show(
-            truncate=False
-        )
-
         print("\n=== Part 5. MLflow regParam 실험 비교 ===")
         print("regParam | Test Acc | Test F1 | Test AUC | Log Loss | Validation F1 mean±std")
         print("---------+----------+---------+----------+----------+-----------------------")
@@ -397,7 +368,7 @@ def main() -> None:
         print("regularization을 크게 만든다고 테스트 성능이 항상 좋아지지는 않습니다.")
         print("MLflow UI: http://localhost:5000")
 
-        save_results(args.output, metrics, predictions[0.01], new_predictions)
+        save_results(args.output, metrics, predictions[0.01])
         print(f"결과 저장 완료: {args.output}")
     finally:
         spark.stop()
